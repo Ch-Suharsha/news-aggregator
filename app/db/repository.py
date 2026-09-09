@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, joinedload
 
 from .models import Article, Digest, DigestItem, Source, SourceType
 
@@ -172,4 +172,68 @@ class NewsRepository:
             summary=summary,
         )
         self.session.add(item)
+        return item
+
+    def list_recent_digest_items_for_ranking(
+        self,
+        *,
+        since: datetime,
+        until: datetime,
+        limit: int = 100,
+        only_unranked: bool = False,
+    ) -> list[DigestItem]:
+        """Return digest items for a ranking window."""
+        publication_time = func.coalesce(Article.published_at, DigestItem.created_at)
+        statement = (
+            select(DigestItem)
+            .join(DigestItem.article)
+            .options(joinedload(DigestItem.article).joinedload(Article.source))
+            .where(publication_time >= since, publication_time <= until)
+            .order_by(publication_time.desc(), DigestItem.id.desc())
+            .limit(limit)
+        )
+        if only_unranked:
+            statement = statement.where(DigestItem.ranked_at.is_(None))
+        return list(self.session.scalars(statement))
+
+    def list_ranked_digest_items_for_email(
+        self,
+        *,
+        since: datetime,
+        until: datetime,
+        limit: int = 10,
+    ) -> list[DigestItem]:
+        """Return the highest-ranked digest items in an email time window."""
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+
+        publication_time = func.coalesce(Article.published_at, DigestItem.created_at)
+        statement = (
+            select(DigestItem)
+            .join(DigestItem.article)
+            .options(joinedload(DigestItem.article).joinedload(Article.source))
+            .where(
+                DigestItem.rank.is_not(None),
+                publication_time >= since,
+                publication_time <= until,
+            )
+            .order_by(DigestItem.rank.asc(), DigestItem.id.asc())
+            .limit(limit)
+        )
+        return list(self.session.scalars(statement))
+
+    def save_digest_item_ranking(
+        self,
+        item: DigestItem,
+        *,
+        rank: int,
+        relevance_score: int,
+        ranking_reason: str,
+        ranked_at: datetime,
+    ) -> DigestItem:
+        """Save one curator ranking on a digest item."""
+        item.rank = rank
+        item.relevance_score = relevance_score
+        item.ranking_reason = ranking_reason
+        item.ranked_at = ranked_at
         return item

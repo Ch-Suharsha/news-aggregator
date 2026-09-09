@@ -7,7 +7,7 @@ then producing a user-tailored daily digest with links to original sources.
 
 ```text
 app/                 application code, models, database, and adapters
-agent/               digest system prompt and editable user insights
+agent/               agent implementations, prompts, and editable user insights
 docker/              local PostgreSQL container
 ```
 
@@ -17,7 +17,12 @@ metadata first and stores it in PostgreSQL; transcripts, full article content, a
 LLM summarization are intentionally separate processing steps. Run
 `PYTHONPATH=. uv run python -m app.cli.process_content` for Stage 2 content
 extraction and `PYTHONPATH=. uv run python -m app.cli.process_digest` for Stage 3
-per-article digest summaries.
+per-article digest summaries. Run `PYTHONPATH=. uv run python -m app.cli.process_curation --hours 24`
+for Stage 4 user-interest ranking. Run
+`PYTHONPATH=. uv run python -m app.cli.process_email --hours 24 --limit 10` for a
+delivery-ready email preview built from the curator's top-ranked items. The
+email agent generates only the opening subject and introduction; the ranked
+article list is assembled deterministically from the database.
 
 The article model reserves `content_text` and `content_html` for full page context.
 Collection stores source metadata and summaries first; later processing can populate
@@ -42,9 +47,7 @@ free to run as a Render web service or cron job later.
 
 1. Add source management and ingestion commands.
 2. Add YouTube Data API and HTML/RSS/newsletter adapters with deduplication.
-3. Add the digest service that loads `agent/digest_system_prompt.md`,
-   `agent/user_insights.md`, and articles for a UTC time window.
-4. Add SMTP delivery, a daily Render cron entry, and Alembic migrations.
+3. Add SMTP/Resend delivery, a daily Render cron entry, and Alembic migrations.
 
 Keep API keys, SMTP credentials, and database URLs in environment variables; prompts
 and user insights are version-controlled project configuration.
