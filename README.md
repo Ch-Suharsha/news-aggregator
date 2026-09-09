@@ -26,6 +26,36 @@ generate and send it through Gmail SMTP. The email agent generates only the
 opening subject and introduction; the ranked article sections are assembled
 deterministically from the database.
 
+To run the complete pipeline as one command, use:
+
+```bash
+PYTHONPATH=. uv run python -m app.cli.daily_digest --hours 24
+```
+
+This runs collection, Markdown/transcript extraction, digest summarization,
+user-interest ranking, email generation, and Gmail delivery in that order. It
+does not send an email when the ranking stage fails.
+
+## Scheduling
+
+On macOS or Linux, schedule the single command with cron. For example, this
+runs at 08:00 according to the machine's cron timezone:
+
+```cron
+0 8 * * * cd /Users/Checkout/Documents/projects/news-aggregator && PYTHONPATH=. /absolute/path/to/uv run python -m app.cli.daily_digest --hours 24 >> daily_digest.log 2>&1
+```
+
+On Render, use this as the Cron Job command once PostgreSQL is hosted somewhere
+reachable by Render:
+
+```bash
+PYTHONPATH=. uv run python -m app.cli.daily_digest --hours 24
+```
+
+GitHub Actions and Render cannot reach the PostgreSQL container running on a
+local Mac. Until the database is moved to a reachable managed service, use the
+local cron option or run the command manually.
+
 The article model reserves `content_text` and `content_html` for full page context.
 Collection stores source metadata and summaries first; later processing can populate
 those fields without changing the original article record. YouTube sources can be
@@ -49,7 +79,7 @@ free to run as a Render web service or cron job later.
 
 1. Add source management and ingestion commands.
 2. Add YouTube Data API and HTML/RSS/newsletter adapters with deduplication.
-3. Add SMTP/Resend delivery, a daily Render cron entry, and Alembic migrations.
+3. Add a daily Render cron entry and Alembic migrations.
 
 Keep API keys, SMTP credentials, and database URLs in environment variables; prompts
 and user insights are version-controlled project configuration.
@@ -69,6 +99,3 @@ same content's HTML rendering as the rich-email alternative.
 Blog ingestion will retain the complete cleaned page context in the database without
 LLM summarization or arbitrary truncation. The system prompt and user-specific
 instructions remain in the separate `agent/` directory.
-
-
-app pw-weav xxnq hich zbdi
