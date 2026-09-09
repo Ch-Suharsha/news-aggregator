@@ -99,6 +99,11 @@ class YouTubeScraper:
             raise ValueError("YouTube RSS entry has no publication timestamp")
         return datetime(*published[:6], tzinfo=timezone.utc)
 
+    @staticmethod
+    def _is_short(url: str) -> bool:
+        """Return whether a YouTube URL uses the Shorts route."""
+        return urlparse(url).path.rstrip("/").startswith("/shorts/")
+
     def fetch_recent_videos(
         self,
         channel: str,
@@ -121,10 +126,13 @@ class YouTubeScraper:
             published_at = self._entry_datetime(entry)
             if cutoff <= published_at <= current_time:
                 video_id = entry.get("yt_videoid") or entry.get("id", "").rsplit(":", 1)[-1]
+                url = entry.get("link", f"https://www.youtube.com/watch?v={video_id}")
+                if self._is_short(url):
+                    continue
                 videos.append(
                     ChannelVideo(
                         title=entry.get("title", "Untitled"),
-                        url=entry.get("link", f"https://www.youtube.com/watch?v={video_id}"),
+                        url=url,
                         video_id=video_id,
                         published_at=published_at,
                         description=entry.get("summary", ""),
