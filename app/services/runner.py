@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.sources import YOUTUBE_CHANNELS
-from app.db.models import Article, Source, SourceType
+from app.db.models import SourceType
+from app.db.repository import NewsRepository
 from app.db.session import SessionLocal
 from app.scrapers.anthropic import ANTHROPIC_FEEDS, AnthropicArticle, AnthropicScraper
 from app.scrapers.openai import OPENAI_NEWS_RSS_URL, OpenAIArticle, OpenAIScraper
@@ -82,22 +82,19 @@ class NewsRunner:
 
     def persist(self, result: NewsRunResult, session: Session) -> None:
         """Upsert collected metadata while leaving content for later processing."""
+        repository = NewsRepository(session)
         source_ids: dict[tuple[SourceType, str], int] = {}
 
-        def source_id(source: Source) -> int:
-            key = (source.source_type, source.url)
+        def source_id(*, name: str, source_type: SourceType, url: str, youtube_channel_id: str | None = None) -> int:
+            key = (source_type, url)
             if key not in source_ids:
-                existing = session.scalar(
-                    select(Source).where(
-                        Source.source_type == source.source_type,
-                        Source.url == source.url,
-                    )
+                source = repository.get_or_create_source(
+                    name=name,
+                    source_type=source_type,
+                    url=url,
+                    youtube_channel_id=youtube_channel_id,
                 )
-                if existing is None:
-                    session.add(source)
-                    session.flush()
-                    existing = source
-                source_ids[key] = existing.id
+                source_ids[key] = source.id
             return source_ids[key]
 
         for video in result.youtube_videos:
@@ -105,21 +102,18 @@ class NewsRunner:
             if channel_id is None:
                 raise ValueError(f"No source channel recorded for video {video.video_id}")
             sid = source_id(
-                Source(
-                    name=f"YouTube channel {channel_id}",
-                    source_type=SourceType.YOUTUBE,
-                    url=f"https://www.youtube.com/channel/{channel_id}",
-                    youtube_channel_id=channel_id,
-                )
+                name=f"YouTube channel {channel_id}",
+                source_type=SourceType.YOUTUBE,
+                url=f"https://www.youtube.com/channel/{channel_id}",
+                youtube_channel_id=channel_id,
             )
-            self._insert_article_if_new(
-                session,
+            repository.create_article_if_new(
                 source_id=sid,
                 external_id=video.video_id,
                 title=video.title,
                 url=video.url,
                 published_at=video.published_at,
-                description=video.description,
+                summary=video.description,
             )
 
         for article in [*result.anthropic_articles, *result.openai_articles]:
@@ -127,49 +121,16 @@ class NewsRunner:
             source_name = "Anthropic" if is_anthropic else "OpenAI"
             feed_url = ANTHROPIC_FEEDS[article.topic] if is_anthropic else OPENAI_NEWS_RSS_URL
             sid = source_id(
-                Source(
-                    name=f"{source_name} News RSS",
-                    source_type=SourceType.BLOG,
-                    url=feed_url,
-                )
+                name=f"{source_name} News RSS",
+                source_type=SourceType.BLOG,
+                url=feed_url,
             )
-            self._insert_article_if_new(
-                session,
+            repository.create_article_if_new(
                 source_id=sid,
                 external_id=article.article_id,
                 title=article.title,
                 url=article.url,
                 published_at=article.published_at,
-                description=article.description,
+                summary=article.description,
             )
         session.commit()
-
-    @staticmethod
-    def _insert_article_if_new(
-        session: Session,
-        *,
-        source_id: int,
-        external_id: str,
-        title: str,
-        url: str,
-        published_at: datetime,
-        description: str,
-    ) -> None:
-        existing = session.scalar(
-            select(Article).where(
-                Article.source_id == source_id,
-                Article.external_id == external_id,
-            )
-        )
-        if existing is None:
-            session.add(
-                Article(
-                    source_id=source_id,
-                    external_id=external_id,
-                    title=title,
-                    url=url,
-                    published_at=published_at,
-                    summary=description or None,
-                    content_text=None,
-                )
-            )

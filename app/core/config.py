@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+psycopg://news:news@localhost:5432/news_aggregator"
+    database_url: str = "postgresql+psycopg://news:news@127.0.0.1:5433/news_aggregator"
     app_timezone: str = "UTC"
     deepseek_api_key: str | None = None
     deepseek_base_url: str = "https://api.deepseek.com"
