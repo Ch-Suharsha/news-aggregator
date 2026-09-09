@@ -7,7 +7,7 @@ from html import escape
 from pathlib import Path
 
 from openai import OpenAI
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, computed_field
 
 from app.core.config import settings
 from app.db.models import DigestItem
@@ -48,6 +48,45 @@ class DailyDigestEmail(BaseModel):
     intro: str = Field(min_length=1)
     articles: list[EmailArticle] = Field(min_length=1, max_length=10)
 
+    @computed_field
+    @property
+    def markdown(self) -> str:
+        """The section-based Markdown body that can be sent as an email."""
+        return self.to_markdown()
+
+    @computed_field
+    @property
+    def text_body(self) -> str:
+        """A plain-text fallback for email clients that do not render Markdown."""
+        return self.to_plain_text()
+
+    @computed_field
+    @property
+    def html_body(self) -> str:
+        """An HTML fallback for delivery providers."""
+        return self.to_html()
+
+    def to_markdown(self) -> str:
+        """Render the email as headings and sections rather than a bullet list."""
+        sections = [
+            f"# {self.subject}",
+            self.greeting,
+            "## Today's overview",
+            self.intro,
+        ]
+        for article in self.articles:
+            sections.extend(
+                [
+                    f"## {article.rank}. {article.title}",
+                    f"**Source:** {article.source}",
+                    f"**Relevance score:** {article.relevance_score}/100",
+                    "### Summary",
+                    article.summary,
+                    f"[Read the original source]({article.url})",
+                ]
+            )
+        return "\n\n".join(sections)
+
     def to_plain_text(self) -> str:
         """Render a readable text-only email body."""
         sections = [self.greeting, "", self.intro, ""]
@@ -68,19 +107,21 @@ class DailyDigestEmail(BaseModel):
         article_markup = []
         for article in self.articles:
             article_markup.append(
-                "<li>"
-                f"<strong>{article.rank}. <a href=\"{escape(article.url, quote=True)}\">"
-                f"{escape(article.title)}</a></strong>"
-                f"<br><small>{escape(article.source)} · "
-                f"Relevance: {article.relevance_score}/100</small>"
+                f"<section><h2>{article.rank}. <a href=\"{escape(article.url, quote=True)}\">"
+                f"{escape(article.title)}</a></h2>"
+                f"<p><small>{escape(article.source)} · "
+                f"Relevance: {article.relevance_score}/100</small></p>"
+                f"<h3>Summary</h3>"
                 f"<p>{escape(article.summary)}</p>"
-                "</li>"
+                "</section>"
             )
         return (
             "<html><body>"
+            f"<h1>{escape(self.subject)}</h1>"
             f"<p>{escape(self.greeting)}</p>"
+            "<h2>Today's overview</h2>"
             f"<p>{escape(self.intro)}</p>"
-            f"<ol>{''.join(article_markup)}</ol>"
+            f"{''.join(article_markup)}"
             "</body></html>"
         )
 

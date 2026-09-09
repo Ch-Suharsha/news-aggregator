@@ -10,8 +10,11 @@ class Settings(BaseSettings):
     youtube_api_key: str | None = None
     digest_recipient_name: str = "Harsha"
     digest_recipient_email: str | None = None
-    resend_api_key: str | None = None
-    email_from: str = "AI News Digest <onboarding@resend.dev>"
+    email_from: str | None = None
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

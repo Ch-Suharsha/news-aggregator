@@ -20,9 +20,11 @@ extraction and `PYTHONPATH=. uv run python -m app.cli.process_digest` for Stage 
 per-article digest summaries. Run `PYTHONPATH=. uv run python -m app.cli.process_curation --hours 24`
 for Stage 4 user-interest ranking. Run
 `PYTHONPATH=. uv run python -m app.cli.process_email --hours 24 --limit 10` for a
-delivery-ready email preview built from the curator's top-ranked items. The
-email agent generates only the opening subject and introduction; the ranked
-article list is assembled deterministically from the database.
+delivery-ready Markdown email preview built from the curator's top-ranked items.
+Use `PYTHONPATH=. uv run python -m app.cli.send_email --hours 24 --limit 10` to
+generate and send it through Gmail SMTP. The email agent generates only the
+opening subject and introduction; the ranked article sections are assembled
+deterministically from the database.
 
 The article model reserves `content_text` and `content_html` for full page context.
 Collection stores source metadata and summaries first; later processing can populate
@@ -58,12 +60,15 @@ The initial LLM provider is DeepSeek. Its API is OpenAI-compatible, so the proje
 can use the familiar `openai` Python SDK with `https://api.deepseek.com` as the base
 URL and `DEEPSEEK_API_KEY` from the environment.
 
-For delivery, the recommended beginner-friendly option is Resend. Its free plan is
-currently sufficient for one daily digest, and it can be called with a small HTTP
-client instead of configuring Gmail OAuth or SMTP. For production sending, verify a
-domain in Resend and set `EMAIL_FROM` to an address on that domain. The default
-`onboarding@resend.dev` value is intended for initial testing.
+For delivery, the current implementation uses Gmail SMTP with a Google App
+Password. Set `SMTP_USERNAME`, `SMTP_PASSWORD`, and `DIGEST_RECIPIENT_EMAIL` in
+`.env`; `SMTP_PASSWORD` must be the App Password, not your normal Gmail password.
+The `send-email` command uses the Markdown body as the plain-text part and the
+same content's HTML rendering as the rich-email alternative.
 
 Blog ingestion will retain the complete cleaned page context in the database without
 LLM summarization or arbitrary truncation. The system prompt and user-specific
 instructions remain in the separate `agent/` directory.
+
+
+app pw-weav xxnq hich zbdi
