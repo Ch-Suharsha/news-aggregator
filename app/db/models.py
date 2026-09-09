@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .session import Base
@@ -82,6 +82,10 @@ class DigestItem(Base):
     title: Mapped[str] = mapped_column(String(1000))
     url: Mapped[str] = mapped_column(String(2000))
     summary: Mapped[str] = mapped_column(Text)
+    rank: Mapped[int | None] = mapped_column(Integer)
+    relevance_score: Mapped[int | None] = mapped_column(Integer)
+    ranking_reason: Mapped[str | None] = mapped_column(Text)
+    ranked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     digest: Mapped[Digest] = relationship(back_populates="items")
     article: Mapped[Article] = relationship(back_populates="digest_items")

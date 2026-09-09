@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-v4-flash"
     youtube_api_key: str | None = None
+    digest_recipient_name: str = "Harsha"
     digest_recipient_email: str | None = None
     resend_api_key: str | None = None
     email_from: str = "AI News Digest <onboarding@resend.dev>"
