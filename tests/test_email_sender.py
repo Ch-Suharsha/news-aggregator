@@ -70,7 +70,7 @@ def test_sender_uses_gmail_smtp_and_markdown_body(monkeypatch):
     assert smtp.logged_in_as == ("me@gmail.com", "app-password")
     assert message["To"] == "me@gmail.com"
     assert "## 1. A useful AI update" in message.get_body(preferencelist=("plain",)).get_content()
-    assert "<h1>" in message.get_body(preferencelist=("html",)).get_content()
+    assert "<h1 style=" in message.get_body(preferencelist=("html",)).get_content()
 
 
 def test_sender_rejects_missing_configuration():

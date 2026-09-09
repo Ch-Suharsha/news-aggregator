@@ -43,6 +43,7 @@ process-digest = "app.cli.process_digest:main"
 process-curation = "app.cli.process_curation:main"
 process-email = "app.cli.process_email:main"
 send-email = "app.cli.send_email:main"
+daily-digest = "app.cli.daily_digest:main"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]

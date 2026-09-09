@@ -117,4 +117,6 @@ def test_email_processor_selects_ranked_items_in_order():
     assert result.email.articles[0].title == "Digest 1"
     assert "## 1. Digest 1" in result.email.markdown
     assert "[Read the original source]" in result.email.markdown
-    assert "<h2>1. " in result.email.html_body
+    assert "<article style=" in result.email.html_body
+    assert "<strong>#1</strong>" in result.email.html_body
+    assert "Today's overview" in result.email.html_body

@@ -103,26 +103,43 @@ class DailyDigestEmail(BaseModel):
         return "\n".join(sections).strip()
 
     def to_html(self) -> str:
-        """Render a minimal HTML email body suitable for a delivery provider."""
+        """Render a compact, readable HTML email body with article sections."""
         article_markup = []
         for article in self.articles:
             article_markup.append(
-                f"<section><h2>{article.rank}. <a href=\"{escape(article.url, quote=True)}\">"
-                f"{escape(article.title)}</a></h2>"
-                f"<p><small>{escape(article.source)} · "
-                f"Relevance: {article.relevance_score}/100</small></p>"
-                f"<h3>Summary</h3>"
-                f"<p>{escape(article.summary)}</p>"
-                "</section>"
+                "<article style=\"margin:0 0 24px;padding:0 0 20px;"
+                "border-bottom:1px solid #e5e7eb;\">"
+                f"<p style=\"margin:0 0 8px;color:#6b7280;font-size:13px;\">"
+                f"<strong>#{article.rank}</strong> · {escape(article.source)} · "
+                f"Relevance: {article.relevance_score}/100</p>"
+                f"<h2 style=\"margin:0 0 10px;font-size:20px;line-height:1.35;\">"
+                f"<a style=\"color:#111827;text-decoration:none;\" "
+                f"href=\"{escape(article.url, quote=True)}\">{escape(article.title)}</a></h2>"
+                f"<p style=\"margin:0 0 12px;color:#374151;line-height:1.6;\">"
+                f"<strong>Summary:</strong> {escape(article.summary)}</p>"
+                f"<p style=\"margin:0;\"><a style=\"color:#2563eb;"
+                f"text-decoration:none;font-weight:600;\" href=\"{escape(article.url, quote=True)}\">"
+                "Read the original source &rarr;</a></p>"
+                "</article>"
             )
         return (
-            "<html><body>"
-            f"<h1>{escape(self.subject)}</h1>"
-            f"<p>{escape(self.greeting)}</p>"
-            "<h2>Today's overview</h2>"
-            f"<p>{escape(self.intro)}</p>"
+            "<!doctype html><html><body style=\"margin:0;background:#f3f4f6;"
+            "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+            "color:#111827;\"><div style=\"max-width:680px;margin:0 auto;"
+            "padding:32px 20px;\"><main style=\"background:#ffffff;"
+            "padding:32px;border-radius:12px;\">"
+            f"<h1 style=\"margin:0 0 8px;font-size:28px;line-height:1.2;\">"
+            f"{escape(self.subject)}</h1>"
+            f"<p style=\"margin:0 0 28px;color:#4b5563;\">{escape(self.greeting)}</p>"
+            "<section style=\"margin:0 0 30px;padding:18px 20px;"
+            "background:#f9fafb;border-left:4px solid #2563eb;\">"
+            "<h2 style=\"margin:0 0 8px;font-size:18px;\">Today's overview</h2>"
+            f"<p style=\"margin:0;color:#374151;line-height:1.6;\">"
+            f"{escape(self.intro)}</p></section>"
             f"{''.join(article_markup)}"
-            "</body></html>"
+            "<p style=\"margin:8px 0 0;color:#9ca3af;font-size:12px;\">"
+            "Generated from your ranked AI news digest.</p>"
+            "</main></div></body></html>"
         )
 
 
