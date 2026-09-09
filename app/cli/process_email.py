@@ -15,7 +15,7 @@ def main() -> None:
 
     create_tables()
     result = EmailProcessor().process_pending(hours=args.hours, limit=args.limit)
-    print(json.dumps(result.__dict__, indent=2, ensure_ascii=False))
+    print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

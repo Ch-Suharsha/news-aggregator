@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from agent.email_agent import DailyDigestEmail, EmailAgent
@@ -12,15 +12,14 @@ from app.db.repository import NewsRepository
 from app.db.session import SessionLocal
 
 
-@dataclass
-class EmailProcessingResult:
+class EmailProcessingResult(BaseModel):
     """Summary and output of one email-generation run."""
 
-    requested: int = 0
+    requested: int = Field(default=0, ge=0)
     generated: bool = False
-    email: dict | None = None
-    failed: int = 0
-    failures: list[str] = field(default_factory=list)
+    email: DailyDigestEmail | None = None
+    failed: int = Field(default=0, ge=0)
+    failures: list[str] = Field(default_factory=list)
 
 
 class EmailProcessor:
@@ -60,9 +59,7 @@ class EmailProcessor:
 
             try:
                 email: DailyDigestEmail = self.agent.build_email(items, digest_date=now.date())
-                result.email = email.model_dump(mode="json")
-                result.email["text_body"] = email.to_plain_text()
-                result.email["html_body"] = email.to_html()
+                result.email = email
                 result.generated = True
             except Exception as exc:  # noqa: BLE001 - one failed preview should be reported, not raised
                 result.failed = 1

@@ -113,7 +113,8 @@ def test_email_processor_selects_ranked_items_in_order():
     assert result.requested == 2
     assert result.generated is True
     assert result.failed == 0
-    assert [item["rank"] for item in result.email["articles"]] == [1, 2]
-    assert result.email["articles"][0]["title"] == "Digest 1"
-    assert "1. Digest 1" in result.email["text_body"]
-    assert "<ol>" in result.email["html_body"]
+    assert [item.rank for item in result.email.articles] == [1, 2]
+    assert result.email.articles[0].title == "Digest 1"
+    assert "## 1. Digest 1" in result.email.markdown
+    assert "[Read the original source]" in result.email.markdown
+    assert "<h2>1. " in result.email.html_body

@@ -17,7 +17,6 @@ dependencies = [
     "psycopg[binary]>=3.2.3",
     "pydantic-settings>=2.6.0",
     "python-dateutil>=2.9.0.post0",
-    "resend>=2.15.0",
     "sqlalchemy>=2.0.36",
     "tenacity>=9.0.0",
     "trafilatura>=1.12.2",
@@ -43,6 +42,7 @@ process-content = "app.cli.process_content:main"
 process-digest = "app.cli.process_digest:main"
 process-curation = "app.cli.process_curation:main"
 process-email = "app.cli.process_email:main"
+send-email = "app.cli.send_email:main"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
