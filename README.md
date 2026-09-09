@@ -14,7 +14,10 @@ docker/              local PostgreSQL container
 The initial collection workflow is exposed through `app/services/runner.py`.
 Configured YouTube channel IDs live in `app/core/sources.py`. The runner collects
 metadata first and stores it in PostgreSQL; transcripts, full article content, and
-LLM summarization are intentionally separate processing steps.
+LLM summarization are intentionally separate processing steps. Run
+`PYTHONPATH=. uv run python -m app.cli.process_content` for Stage 2 content
+extraction and `PYTHONPATH=. uv run python -m app.cli.process_digest` for Stage 3
+per-article digest summaries.
 
 The article model reserves `content_text` and `content_html` for full page context.
 Collection stores source metadata and summaries first; later processing can populate

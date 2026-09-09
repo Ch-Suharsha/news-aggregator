@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Article, Source, SourceType
+from .models import Article, Digest, DigestItem, Source, SourceType
 
 
 class NewsRepository:
@@ -80,3 +80,96 @@ class NewsRepository:
             .limit(limit)
         )
         return list(self.session.scalars(statement))
+
+    def list_unprocessed_articles(
+        self,
+        *,
+        limit: int = 50,
+        retry_failed: bool = False,
+    ) -> list[Article]:
+        """Return collected articles that do not yet have extracted content."""
+        statement = (
+            select(Article)
+            .join(Article.source)
+            .where(Article.content_text.is_(None))
+            .order_by(Article.created_at.asc())
+            .limit(limit)
+        )
+        if not retry_failed:
+            statement = statement.where(Article.processing_error.is_(None))
+        return list(self.session.scalars(statement))
+
+    def save_article_content(
+        self,
+        article: Article,
+        *,
+        content_text: str,
+        content_hash: str,
+        processed_at: datetime,
+    ) -> Article:
+        """Save extracted content and mark an article as successfully processed."""
+        article.content_text = content_text
+        article.content_hash = content_hash
+        article.processed_at = processed_at
+        article.processing_error = None
+        return article
+
+    def save_article_processing_error(self, article: Article, error: str) -> Article:
+        """Record a processing failure without removing the collected metadata."""
+        article.processing_error = error
+        return article
+
+    def list_articles_without_digest_item(self, *, limit: int = 100) -> list[Article]:
+        """Return articles that do not yet have an LLM-generated digest item."""
+        statement = (
+            select(Article)
+            .outerjoin(DigestItem, DigestItem.article_id == Article.id)
+            .where(DigestItem.id.is_(None))
+            .order_by(Article.published_at.asc(), Article.id.asc())
+            .limit(limit)
+        )
+        return list(self.session.scalars(statement))
+
+    def create_digest(
+        self,
+        *,
+        period_start: datetime,
+        period_end: datetime,
+        prompt_version: str,
+    ) -> Digest:
+        """Create a digest run that will own generated digest items."""
+        digest = Digest(
+            period_start=period_start,
+            period_end=period_end,
+            prompt_version=prompt_version,
+            content="",
+        )
+        self.session.add(digest)
+        self.session.flush()
+        return digest
+
+    def create_digest_item_if_new(
+        self,
+        *,
+        digest_id: int,
+        article_id: int,
+        title: str,
+        url: str,
+        summary: str,
+    ) -> DigestItem:
+        """Create one digest item unless the article was already summarized."""
+        existing = self.session.scalar(
+            select(DigestItem).where(DigestItem.article_id == article_id)
+        )
+        if existing is not None:
+            return existing
+
+        item = DigestItem(
+            digest_id=digest_id,
+            article_id=article_id,
+            title=title,
+            url=url,
+            summary=summary,
+        )
+        self.session.add(item)
+        return item

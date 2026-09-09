@@ -46,6 +46,10 @@ class Article(Base):
     processing_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     source: Mapped[Source] = relationship(back_populates="articles")
+    digest_items: Mapped[list["DigestItem"]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+    )
 
 
 class Digest(Base):
@@ -58,3 +62,26 @@ class Digest(Base):
     content: Mapped[str] = mapped_column(Text)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    items: Mapped[list["DigestItem"]] = relationship(
+        back_populates="digest",
+        cascade="all, delete-orphan",
+    )
+
+
+class DigestItem(Base):
+    """One LLM-generated summary of an article included in a digest run."""
+
+    __tablename__ = "digest_items"
+    __table_args__ = (
+        UniqueConstraint("article_id", name="uq_digest_item_article"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    digest_id: Mapped[int] = mapped_column(ForeignKey("digests.id", ondelete="CASCADE"))
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(1000))
+    url: Mapped[str] = mapped_column(String(2000))
+    summary: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    digest: Mapped[Digest] = relationship(back_populates="items")
+    article: Mapped[Article] = relationship(back_populates="digest_items")
