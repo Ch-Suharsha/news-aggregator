@@ -39,6 +39,8 @@ news-aggregator = "app:main"
 youtube-feed = "app.cli.youtube:main"
 news-run = "app.cli.run:main"
 create-tables = "app.db.create_tables:main"
+process-content = "app.cli.process_content:main"
+process-digest = "app.cli.process_digest:main"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
