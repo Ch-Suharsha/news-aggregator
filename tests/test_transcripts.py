@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from app.services import transcripts
+from app.scrapers.youtube import YouTubeScraper
 
 
 def test_get_transcript_text_returns_plain_text(monkeypatch):
@@ -14,6 +14,9 @@ def test_get_transcript_text_returns_plain_text(monkeypatch):
                 SimpleNamespace(text="Second sentence"),
             ]
 
-    monkeypatch.setattr(transcripts, "YouTubeTranscriptApi", lambda: FakeTranscriptApi())
+    scraper = YouTubeScraper()
+    scraper.transcript_api = FakeTranscriptApi()
 
-    assert transcripts.get_transcript_text(" video123 ") == "First sentence\nSecond sentence"
+    transcript = scraper.get_transcript(" video123 ")
+
+    assert transcript.text == "First sentence\nSecond sentence"

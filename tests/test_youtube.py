@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.scrapers.youtube import fetch_recent_videos
+from app.scrapers.youtube import YouTubeScraper
 
 
 def test_fetch_recent_videos_filters_rss_entries(monkeypatch):
@@ -15,7 +15,7 @@ def test_fetch_recent_videos_filters_rss_entries(monkeypatch):
         return Response()
 
     monkeypatch.setattr("app.scrapers.youtube.httpx.get", fake_get)
-    videos = fetch_recent_videos(
+    videos = YouTubeScraper().fetch_recent_videos(
         "UC1234567890123456789012",
         now=datetime(2026, 9, 8, 12, tzinfo=timezone.utc),
     )

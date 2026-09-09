@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from app.scrapers.youtube import add_transcripts, fetch_recent_videos
+from app.scrapers.youtube import YouTubeScraper
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,10 +18,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     languages = tuple(args.language or ["en"])
+    scraper = YouTubeScraper()
     results = []
     for channel in args.channels:
-        videos = fetch_recent_videos(channel, hours=args.hours)
+        videos = scraper.fetch_recent_videos(channel, hours=args.hours)
         if not args.no_transcripts:
-            add_transcripts(videos, languages)
-        results.extend(video.to_dict() for video in videos)
+            scraper.add_transcripts(videos, languages)
+        results.extend(video.model_dump(mode="json") for video in videos)
     print(json.dumps(results, indent=2, ensure_ascii=False))
