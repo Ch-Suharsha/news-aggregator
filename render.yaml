@@ -1,0 +1,38 @@
+databases:
+  - name: news-aggregator-db
+    plan: 0.1c-256mb
+    databaseName: news_aggregator
+    user: news
+
+services:
+  - type: cron
+    name: news-aggregator-daily
+    runtime: docker
+    plan: 0.5c-512mb
+    schedule: "0 8 * * *"
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: news-aggregator-db
+          property: connectionString
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_MODEL
+        value: deepseek-v4-flash
+      - key: DIGEST_HOURS
+        value: "24"
+      - key: DIGEST_RECIPIENT_NAME
+        value: Harsha
+      - key: DIGEST_RECIPIENT_EMAIL
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false

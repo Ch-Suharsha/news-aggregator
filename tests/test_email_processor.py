@@ -114,6 +114,7 @@ def test_email_processor_selects_ranked_items_in_order():
 
     assert result.requested == 2
     assert result.generated is True
+    assert result.digest_ids == [1]
     assert result.failed == 0
     assert [item.rank for item in result.email.articles] == [1, 2]
     assert result.email.articles[0].title == "Digest 1"
@@ -124,3 +125,23 @@ def test_email_processor_selects_ranked_items_in_order():
     assert "<strong>#1</strong>" in result.email.html_body
     assert "Published:" in result.email.html_body
     assert "Today's overview" in result.email.html_body
+
+
+def test_email_processor_skips_a_digest_that_was_already_sent():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        _seed_ranked_items(session, count=1)
+        digest = session.query(Digest).one()
+        digest.sent_at = datetime.now(UTC)
+        session.commit()
+
+        result = EmailProcessor(agent=FakeEmailAgent()).process_pending(
+            hours=24,
+            limit=10,
+            session=session,
+        )
+
+    assert result.requested == 0
+    assert result.generated is False
+    assert result.digest_ids == []
