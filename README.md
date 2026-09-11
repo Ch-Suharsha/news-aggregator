@@ -9,6 +9,8 @@ then producing a user-tailored daily digest with links to original sources.
 app/                 application code, models, database, and adapters
 agent/               agent implementations, prompts, and editable user insights
 docker/              local PostgreSQL container
+main.py              production entrypoint for the scheduled pipeline
+render.yaml          Render Cron Job and PostgreSQL Blueprint
 ```
 
 The initial collection workflow is exposed through `app/services/runner.py`.
@@ -45,16 +47,22 @@ runs at 08:00 according to the machine's cron timezone:
 0 8 * * * cd /Users/Checkout/Documents/projects/news-aggregator && PYTHONPATH=. /absolute/path/to/uv run python -m app.cli.daily_digest --hours 24 >> daily_digest.log 2>&1
 ```
 
-On Render, use this as the Cron Job command once PostgreSQL is hosted somewhere
-reachable by Render:
+For production, the repository includes a Render Blueprint. It defines a Docker
+Cron Job and a managed Render PostgreSQL database. The Cron Job uses the Docker
+image's `python main.py` command and the schedule in `render.yaml`:
 
 ```bash
-PYTHONPATH=. uv run python -m app.cli.daily_digest --hours 24
+python main.py
 ```
 
-GitHub Actions and Render cannot reach the PostgreSQL container running on a
-local Mac. Until the database is moved to a reachable managed service, use the
-local cron option or run the command manually.
+Render provides the production `DATABASE_URL` to the container through the
+database connection defined in the Blueprint. The local Docker Compose database
+is only for development; it is not used by the deployed Cron Job. Change the
+Render `schedule` or `DIGEST_HOURS` value when you need a different daily run
+time or look-back window.
+
+The deployment uses a fresh production database. It does not copy the local
+development database automatically.
 
 The article model reserves `content_text` and `content_html` for full page context.
 Collection stores source metadata and summaries first; later processing can populate
@@ -71,15 +79,14 @@ uv sync
 uv run python -c "from app.db import create_tables; create_tables()"
 ```
 
-The only container currently needed is PostgreSQL. This keeps the local setup close
-to a managed Postgres deployment while leaving the Python app and scheduled worker
-free to run as a Render web service or cron job later.
+The local container is PostgreSQL only. In production, Render runs the Python
+Docker container as a Cron Job and provides a separate managed PostgreSQL service.
 
 ## Planned next slices
 
 1. Add source management and ingestion commands.
 2. Add YouTube Data API and HTML/RSS/newsletter adapters with deduplication.
-3. Add a daily Render cron entry and Alembic migrations.
+3. Add Alembic migrations when the schema begins changing regularly.
 
 Keep API keys, SMTP credentials, and database URLs in environment variables; prompts
 and user insights are version-controlled project configuration.

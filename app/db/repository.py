@@ -211,9 +211,11 @@ class NewsRepository:
         statement = (
             select(DigestItem)
             .join(DigestItem.article)
+            .join(DigestItem.digest)
             .options(joinedload(DigestItem.article).joinedload(Article.source))
             .where(
                 DigestItem.rank.is_not(None),
+                Digest.sent_at.is_(None),
                 publication_time >= since,
                 publication_time <= until,
             )
@@ -221,6 +223,17 @@ class NewsRepository:
             .limit(limit)
         )
         return list(self.session.scalars(statement))
+
+    def mark_digests_sent(self, digest_ids: list[int], *, sent_at: datetime) -> None:
+        """Mark delivered digest runs so later scheduled runs do not resend them."""
+        if not digest_ids:
+            return
+
+        digests = self.session.scalars(
+            select(Digest).where(Digest.id.in_(digest_ids))
+        )
+        for digest in digests:
+            digest.sent_at = sent_at
 
     def save_digest_item_ranking(
         self,

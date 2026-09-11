@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +16,16 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password: str | None = None
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        """Use the installed psycopg v3 driver for local and Render URLs."""
+        if value.startswith("postgres://"):
+            value = "postgresql://" + value.removeprefix("postgres://")
+        if value.startswith("postgresql://"):
+            return "postgresql+psycopg://" + value.removeprefix("postgresql://")
+        return value
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

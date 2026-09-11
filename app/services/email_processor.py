@@ -18,6 +18,7 @@ class EmailProcessingResult(BaseModel):
     requested: int = Field(default=0, ge=0)
     generated: bool = False
     email: DailyDigestEmail | None = None
+    digest_ids: list[int] = Field(default_factory=list)
     failed: int = Field(default=0, ge=0)
     failures: list[str] = Field(default_factory=list)
 
@@ -57,6 +58,8 @@ class EmailProcessor:
             if not items:
                 return
 
+            result.digest_ids = sorted({item.digest_id for item in items})
+
             try:
                 email: DailyDigestEmail = self.agent.build_email(items, digest_date=now.date())
                 result.email = email
@@ -71,3 +74,17 @@ class EmailProcessor:
             with SessionLocal() as owned_session:
                 process_with_session(owned_session)
         return result
+
+    @staticmethod
+    def mark_digests_sent(digest_ids: list[int], *, sent_at: datetime | None = None) -> None:
+        """Persist successful delivery markers for a later idempotent run."""
+        if not digest_ids:
+            return
+
+        with SessionLocal() as session:
+            repository = NewsRepository(session)
+            repository.mark_digests_sent(
+                digest_ids,
+                sent_at=sent_at or datetime.now(UTC),
+            )
+            session.commit()
