@@ -107,6 +107,7 @@ def test_daily_pipeline_runs_stages_in_order():
         "youtube_videos": 0,
         "anthropic_articles": 0,
         "openai_articles": 0,
+        "failures": [],
     }
     assert result.delivery.sent is True
 

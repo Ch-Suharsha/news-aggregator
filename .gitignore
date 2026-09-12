@@ -9,6 +9,10 @@ wheels/
 # Virtual environments
 .venv
 .env
+.neon
 
 # Local, portable agent skills
 /skills/
+
+# Local deployment walkthrough; keep it out of GitHub
+/deployment.md

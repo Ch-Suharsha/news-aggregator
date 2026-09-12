@@ -1,9 +1,3 @@
-databases:
-  - name: news-aggregator-db
-    plan: 0.1c-256mb
-    databaseName: news_aggregator
-    user: news
-
 services:
   - type: cron
     name: news-aggregator-daily
@@ -13,9 +7,7 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: news-aggregator-db
-          property: connectionString
+        sync: false
       - key: DEEPSEEK_API_KEY
         sync: false
       - key: DEEPSEEK_MODEL
