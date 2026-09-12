@@ -25,7 +25,7 @@ class DailyDigestPipelineResult(BaseModel):
 
     status: str = "started"
     hours: int = Field(ge=1)
-    collection: dict[str, int] | None = None
+    collection: dict[str, Any] | None = None
     content: dict[str, Any] | None = None
     digest: dict[str, Any] | None = None
     curation: dict[str, Any] | None = None
@@ -83,7 +83,9 @@ class DailyDigestPipeline:
             "youtube_videos": len(collected.youtube_videos),
             "anthropic_articles": len(collected.anthropic_articles),
             "openai_articles": len(collected.openai_articles),
+            "failures": collected.failures,
         }
+        result.failures.extend(collected.failures)
 
         content: ContentProcessingResult = self.content_processor.process_pending(
             batch_size=content_batch_size,

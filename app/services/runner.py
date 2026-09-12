@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.sources import YOUTUBE_CHANNELS
@@ -24,6 +24,7 @@ class NewsRunResult(BaseModel):
     youtube_videos: list[ChannelVideo]
     anthropic_articles: list[AnthropicArticle]
     openai_articles: list[OpenAIArticle]
+    failures: list[str] = Field(default_factory=list)
 
 
 class NewsRunner:
@@ -45,21 +46,38 @@ class NewsRunner:
 
     def collect(self, *, hours: int = 24, now: datetime | None = None) -> NewsRunResult:
         """Fetch source metadata without transcripts, LLM calls, or database writes."""
-        collected_at = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        collected_at = (now or datetime.now(UTC)).astimezone(UTC)
         youtube_videos: list[ChannelVideo] = []
+        failures: list[str] = []
         self._video_sources = {}
         for channel in self.youtube_channels:
-            channel_id = self.youtube_scraper.resolve_channel_id(channel)
-            videos = self.youtube_scraper.fetch_recent_videos(channel_id, hours=hours, now=now)
-            youtube_videos.extend(videos)
-            self._video_sources.update({video.video_id: channel_id for video in videos})
+            try:
+                channel_id = self.youtube_scraper.resolve_channel_id(channel)
+                videos = self.youtube_scraper.fetch_recent_videos(channel_id, hours=hours, now=now)
+                youtube_videos.extend(videos)
+                self._video_sources.update({video.video_id: channel_id for video in videos})
+            except Exception as exc:  # noqa: BLE001 - one unavailable channel should not stop the pipeline
+                failures.append(f"YouTube channel {channel}: {type(exc).__name__}: {exc}")
+
+        try:
+            anthropic_articles = self.anthropic_scraper.fetch_recent_articles(hours=hours, now=now)
+        except Exception as exc:  # noqa: BLE001 - one unavailable provider should not stop other providers
+            anthropic_articles = []
+            failures.append(f"Anthropic: {type(exc).__name__}: {exc}")
+
+        try:
+            openai_articles = self.openai_scraper.fetch_recent_articles(hours=hours, now=now)
+        except Exception as exc:  # noqa: BLE001 - one unavailable provider should not stop other providers
+            openai_articles = []
+            failures.append(f"OpenAI: {type(exc).__name__}: {exc}")
 
         return NewsRunResult(
             lookback_hours=hours,
             collected_at=collected_at,
             youtube_videos=youtube_videos,
-            anthropic_articles=self.anthropic_scraper.fetch_recent_articles(hours=hours, now=now),
-            openai_articles=self.openai_scraper.fetch_recent_articles(hours=hours, now=now),
+            anthropic_articles=anthropic_articles,
+            openai_articles=openai_articles,
+            failures=failures,
         )
 
     def run(

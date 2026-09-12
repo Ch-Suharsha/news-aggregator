@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -8,7 +8,7 @@ from app.db.session import Base
 from app.scrapers.anthropic import AnthropicArticle, AnthropicTopic
 from app.scrapers.openai import OpenAIArticle
 from app.scrapers.youtube import ChannelVideo
-from app.services.runner import NewsRunResult, NewsRunner
+from app.services.runner import NewsRunner, NewsRunResult
 
 
 class FakeYouTubeScraper:
@@ -17,6 +17,11 @@ class FakeYouTubeScraper:
 
     def fetch_recent_videos(self, channel, *, hours, now):
         return []
+
+
+class FailingYouTubeScraper(FakeYouTubeScraper):
+    def fetch_recent_videos(self, channel, *, hours, now):
+        raise RuntimeError("temporary RSS failure")
 
 class FakeAnthropicScraper:
     def fetch_recent_articles(self, *, hours, now):
@@ -34,7 +39,7 @@ def test_runner_collects_all_sources_with_one_lookback_window():
         youtube_scraper=FakeYouTubeScraper(),
         anthropic_scraper=FakeAnthropicScraper(),
         openai_scraper=FakeOpenAIScraper(),
-    ).run(hours=24, now=datetime(2026, 9, 8, tzinfo=timezone.utc), persist=False)
+    ).run(hours=24, now=datetime(2026, 9, 8, tzinfo=UTC), persist=False)
 
     assert result.lookback_hours == 24
     assert result.youtube_videos == []
@@ -42,10 +47,25 @@ def test_runner_collects_all_sources_with_one_lookback_window():
     assert result.openai_articles == []
 
 
+def test_runner_continues_when_one_youtube_channel_fails():
+    result = NewsRunner(
+        youtube_channels=["unavailable-channel", "working-channel"],
+        youtube_scraper=FailingYouTubeScraper(),
+        anthropic_scraper=FakeAnthropicScraper(),
+        openai_scraper=FakeOpenAIScraper(),
+    ).run(hours=24, now=datetime(2026, 9, 8, tzinfo=UTC), persist=False)
+
+    assert result.youtube_videos == []
+    assert result.anthropic_articles == []
+    assert result.openai_articles == []
+    assert len(result.failures) == 2
+    assert all("YouTube channel" in failure for failure in result.failures)
+
+
 def test_runner_persists_metadata_without_processed_content():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
-    now = datetime(2026, 9, 8, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 8, tzinfo=UTC)
     runner = NewsRunner(youtube_channels=["channel-id"])
     runner._video_sources = {"video-id": "channel-id"}
     result = NewsRunResult(
