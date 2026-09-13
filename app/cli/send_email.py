@@ -15,11 +15,15 @@ def main() -> None:
     args = parser.parse_args()
 
     create_tables()
-    generation = EmailProcessor().process_pending(hours=args.hours, limit=args.limit)
+    processor = EmailProcessor()
+    generation = processor.process_pending(hours=args.hours, limit=args.limit)
     output = {"generation": generation.model_dump(mode="json"), "delivery": None}
     if generation.email is not None and generation.generated:
         try:
-            output["delivery"] = EmailSender().send(generation.email).model_dump(mode="json")
+            delivery = EmailSender().send(generation.email)
+            output["delivery"] = delivery.model_dump(mode="json")
+            if delivery.sent:
+                processor.mark_digests_sent(generation.digest_ids)
         except ValueError as exc:
             output["delivery"] = {
                 "sent": False,

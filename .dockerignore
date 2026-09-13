@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+.env
+.neon
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+skills
+tests
+docker

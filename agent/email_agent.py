@@ -36,6 +36,7 @@ class EmailArticle(BaseModel):
     title: str = Field(min_length=1)
     url: str = Field(min_length=1)
     summary: str = Field(min_length=1)
+    published_at: datetime | None = None
 
 
 class DailyDigestEmail(BaseModel):
@@ -79,6 +80,7 @@ class DailyDigestEmail(BaseModel):
                 [
                     f"## {article.rank}. {article.title}",
                     f"**Source:** {article.source}",
+                    f"**Published:** {self._published_label(article.published_at)}",
                     f"**Relevance score:** {article.relevance_score}/100",
                     "### Summary",
                     article.summary,
@@ -87,6 +89,14 @@ class DailyDigestEmail(BaseModel):
             )
         return "\n\n".join(sections)
 
+    @staticmethod
+    def _published_label(published_at: datetime | None) -> str:
+        """Format the original publication date without confusing it with send time."""
+        if published_at is None:
+            return "Publication date unavailable"
+        day = published_at.strftime("%d").lstrip("0") or "0"
+        return f"{published_at.strftime('%B')} {day}, {published_at:%Y}"
+
     def to_plain_text(self) -> str:
         """Render a readable text-only email body."""
         sections = [self.greeting, "", self.intro, ""]
@@ -94,7 +104,11 @@ class DailyDigestEmail(BaseModel):
             sections.extend(
                 [
                     f"{article.rank}. {article.title}",
-                    f"Source: {article.source} | Relevance: {article.relevance_score}/100",
+                    (
+                        f"Source: {article.source} | "
+                        f"Published: {self._published_label(article.published_at)} | "
+                        f"Relevance: {article.relevance_score}/100"
+                    ),
                     article.summary,
                     article.url,
                     "",
@@ -111,6 +125,7 @@ class DailyDigestEmail(BaseModel):
                 "border-bottom:1px solid #e5e7eb;\">"
                 f"<p style=\"margin:0 0 8px;color:#6b7280;font-size:13px;\">"
                 f"<strong>#{article.rank}</strong> · {escape(article.source)} · "
+                f"Published: {escape(self._published_label(article.published_at))} · "
                 f"Relevance: {article.relevance_score}/100</p>"
                 f"<h2 style=\"margin:0 0 10px;font-size:20px;line-height:1.35;\">"
                 f"<a style=\"color:#111827;text-decoration:none;\" "
@@ -230,6 +245,7 @@ class EmailAgent:
                 title=item.title,
                 url=item.url,
                 summary=item.summary,
+                published_at=item.article.published_at if item.article else None,
             )
             for item in ordered_items
         ]

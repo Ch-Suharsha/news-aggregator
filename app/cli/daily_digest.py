@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from dataclasses import asdict, is_dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -23,7 +25,7 @@ class DailyDigestPipelineResult(BaseModel):
 
     status: str = "started"
     hours: int = Field(ge=1)
-    collection: dict[str, int] | None = None
+    collection: dict[str, Any] | None = None
     content: dict[str, Any] | None = None
     digest: dict[str, Any] | None = None
     curation: dict[str, Any] | None = None
@@ -81,7 +83,9 @@ class DailyDigestPipeline:
             "youtube_videos": len(collected.youtube_videos),
             "anthropic_articles": len(collected.anthropic_articles),
             "openai_articles": len(collected.openai_articles),
+            "failures": collected.failures,
         }
+        result.failures.extend(collected.failures)
 
         content: ContentProcessingResult = self.content_processor.process_pending(
             batch_size=content_batch_size,
@@ -115,13 +119,28 @@ class DailyDigestPipeline:
 
         delivery = self.email_sender.send(email.email)
         result.delivery = delivery
+        if delivery.sent and email.digest_ids:
+            try:
+                self.email_processor.mark_digests_sent(
+                    email.digest_ids,
+                    sent_at=datetime.now(UTC),
+                )
+            except Exception as exc:  # noqa: BLE001 - delivery happened; surface tracking failure
+                result.failures.append(f"{type(exc).__name__}: {exc}")
+                result.status = "delivery_tracking_failed"
+                return result
         result.status = "sent" if delivery.sent else "delivery_failed"
         return result
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the complete daily AI news pipeline.")
-    parser.add_argument("--hours", type=int, default=24, help="Look-back window (default: 24).")
+    parser.add_argument(
+        "--hours",
+        type=int,
+        default=int(os.getenv("DIGEST_HOURS", "24")),
+        help="Look-back window (default: DIGEST_HOURS or 24).",
+    )
     parser.add_argument("--content-batch-size", type=int, default=100)
     parser.add_argument("--digest-limit", type=int, default=100)
     parser.add_argument("--curation-limit", type=int, default=100)
@@ -137,6 +156,13 @@ def main() -> None:
         email_limit=args.email_limit,
     )
     print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
+    if result.status in {
+        "curation_failed",
+        "email_generation_failed",
+        "delivery_failed",
+        "delivery_tracking_failed",
+    }:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

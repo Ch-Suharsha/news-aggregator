@@ -96,6 +96,8 @@ def test_email_agent_uses_structured_responses_output():
         email = agent.build_email([item], digest_date=datetime(2026, 9, 9, tzinfo=UTC).date())
 
     assert email.articles[0].rank == 1
+    assert email.articles[0].published_at is not None
+    assert "**Published:**" in email.markdown
     assert email.greeting.startswith("Hey Harsha")
     call = client.responses.calls[0]
     assert call["model"] == "deepseek-v4-flash"
@@ -112,11 +114,34 @@ def test_email_processor_selects_ranked_items_in_order():
 
     assert result.requested == 2
     assert result.generated is True
+    assert result.digest_ids == [1]
     assert result.failed == 0
     assert [item.rank for item in result.email.articles] == [1, 2]
     assert result.email.articles[0].title == "Digest 1"
     assert "## 1. Digest 1" in result.email.markdown
+    assert "**Published:**" in result.email.markdown
     assert "[Read the original source]" in result.email.markdown
     assert "<article style=" in result.email.html_body
     assert "<strong>#1</strong>" in result.email.html_body
+    assert "Published:" in result.email.html_body
     assert "Today's overview" in result.email.html_body
+
+
+def test_email_processor_skips_a_digest_that_was_already_sent():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        _seed_ranked_items(session, count=1)
+        digest = session.query(Digest).one()
+        digest.sent_at = datetime.now(UTC)
+        session.commit()
+
+        result = EmailProcessor(agent=FakeEmailAgent()).process_pending(
+            hours=24,
+            limit=10,
+            session=session,
+        )
+
+    assert result.requested == 0
+    assert result.generated is False
+    assert result.digest_ids == []
