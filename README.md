@@ -3,6 +3,8 @@
 A Python/PostgreSQL foundation for collecting YouTube videos, blogs, and newsletters,
 then producing a user-tailored daily digest with links to original sources.
 
+![AI News Aggregator Version 1 architecture](img/ai-news-aggregator-architecture.png)
+
 ## Current structure
 
 ```text
